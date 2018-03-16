@@ -150,25 +150,23 @@ def process(args: Namespace):
         args.Input = args.Input + '.tmp'
         rename(args.Output, args.Input)
 
-    input_name = args.Input
-    output_name = args.Output
+    input = open(args.Input, 'rb')
+    output = open(args.Output, 'wb')
 
-    input = open(input_name, 'rb+')
-    output = open(output_name, 'wb+')
+    input.seek(0, SEEK_END)
+    total_size = input.tell()
+    input.seek(0, SEEK_SET)
 
     vers = checkID3version(input)
-    input.seek(0, 0)
+    input.seek(0, SEEK_SET)
     if vers.isNone:
-        for buffer in input:
-            output.write(buffer)
-    elif (vers.isID3v1 or vers.isID3v1_1 or vers.isID3v2):
+        buffer = input.read(total_size)
+        output.write(buffer)
+    elif vers.isID3v1 or vers.isID3v1_1 or vers.isID3v2:
         ID3v2_size = 0
         if vers.isID3v2:
             ID3 = ID3v2_TAG(input)
             ID3v2_size = ID3.t_size
-
-        input.seek(0, SEEK_END)
-        total_size = input.tell()
 
         input.seek(ID3v2_size, 0)
         to_read = total_size - ID3v2_size
