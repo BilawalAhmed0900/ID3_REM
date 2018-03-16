@@ -81,6 +81,8 @@ class ID3v2_TAG:
         # only for 2.4, its 4th bit
         if (self.version_major == 4):
             self.footer = self.flags and (1 << (4 - 1))
+        else:
+            self.footer = 0
 
         # big-endien, so that original bytes can be re-obtained
         self.size = int.from_bytes(input.read(4), byteorder='big')
