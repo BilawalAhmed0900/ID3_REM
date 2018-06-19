@@ -1,9 +1,9 @@
 from __future__ import print_function
 
-from os import remove, rename
-from sys import exit
-from io import BufferedReader
-from argparse import ArgumentParser, Namespace
+import os
+import sys
+import argparse
+import struct
 
 
 SEEK_SET = 0
@@ -11,8 +11,8 @@ SEEK_CUR = 1
 SEEK_END = 2
 
 
-def main() -> None:
-    parser = ArgumentParser(description='Remove ID3 tag from mp3')
+def main():
+    parser = argparse.ArgumentParser(description='os.remove ID3 tag from mp3')
     parser.add_argument('Input',  action='store', help='Input file')
 
     parser.add_argument('-o', dest='Output',
@@ -24,10 +24,10 @@ def main() -> None:
         process(args)
     except KeyboardInterrupt:
         print("Ctrl-C detected, exiting...")
-        exit(-1)
+        sys.exit(-1)
 
 
-def unsynchsafe(number: int) -> int:
+def unsynchsafe(number):
     out = 0
     mask = 0x7F000000
 
@@ -53,26 +53,28 @@ class ID3v2_TAG:
     size = 0
     t_size = 0
 
-    def __init__(self, input: BufferedReader) -> 'ID3v2_TAG':
+    def __init__(self, input):
         # 'ID3'
         self.IDENT = input.read(3).decode('utf-8')
 
         # v2.version_major.version_minor
-        self.version_major = int.from_bytes(input.read(1), byteorder='little')
-        self.version_minor = int.from_bytes(input.read(1), byteorder='little')
+        self.version_major = struct.unpack('<B', input.read(1))[0]
+        self.version_minor = struct.unpack('<B', input.read(1))[0]
 
         # each version_major has different use of flags
-        self.flags = int.from_bytes(input.read(1), byteorder='little')
+        self.flags = struct.unpack('<B', input.read(1))[0]
 
         # present in 2.2, 2.3 and 2.4, its the 7th bit
         self.unsynchronisation = self.flags and (1 << (7 - 1))
 
-        ''' is_compression_used for 2.2
-        else is_extended_found for 2.3 and 2.4, 6th bit'''
+        # is_compression_used for 2.2
+        # else is_extended_found for 2.3 and 2.4, 6th bit
         if (self.version_major == 2):
             self.compression = self.flags and (1 << (6 - 1))
+            self.ext_header = 0
         else:
             self.ext_header = self.flags and (1 << (6 - 1))
+            self.compression = 0
 
         # only for 2.3 and 2.4, its 5th bit
         if (self.version_major != 2):
@@ -85,15 +87,14 @@ class ID3v2_TAG:
             self.footer = 0
 
         # big-endien, so that original bytes can be re-obtained
-        self.size = int.from_bytes(input.read(4), byteorder='big')
+        self.size = struct.unpack('>I', input.read(4))[0]
         self.size = unsynchsafe(self.size)
-
-        '''
-            Total size =
-                self.size +
-                if footer present then 10 i.e sizeof(footer) +
-                size read already i.e 10 i.e sizeof(header)
-        '''
+        
+        # Total size =
+            # self.size +
+            # if footer present then 10 i.e sizeof(footer) +
+            # size read already i.e 10 i.e sizeof(header)
+        
         self.t_size = self.size + (self.footer * 10) + 10
 
 
@@ -109,14 +110,14 @@ class Versions:
     isID3v2 = False
     isNone = False
 
-    def __init__(self) -> 'Versions':
+    def __init__(self):
         self.isID3v1 = False
         self.isID3v1_1 = False
         self.isID3v2 = False
         self.isNone = True
 
 
-def checkID3version(input: BufferedReader) -> Versions:
+def checkID3version(input):
     vers = Versions()
 
     # ID3v1 tag is of 128bytes from the end
@@ -139,18 +140,18 @@ def checkID3version(input: BufferedReader) -> Versions:
     return vers
 
 
-def process(args: Namespace):
+def process(args):
     istmp = False
 
-    '''
-        input -> input.tmp
-        output -> input
-    '''
+    #
+    #   input -> input.tmp
+    #   output -> input
+    #
     if (args.Output == ''):
         istmp = True
         args.Output = args.Input
         args.Input = args.Input + '.tmp'
-        rename(args.Output, args.Input)
+        os.rename(args.Output, args.Input)
 
     input = open(args.Input, 'rb')
     output = open(args.Output, 'wb')
@@ -185,7 +186,7 @@ def process(args: Namespace):
     output.close()
 
     if istmp:
-        remove(args.Input)
+        os.remove(args.Input)
 
 
 if __name__ == '__main__':
