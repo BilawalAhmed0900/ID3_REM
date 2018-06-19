@@ -12,7 +12,7 @@ SEEK_END = 2
 
 
 def main():
-    parser = argparse.ArgumentParser(description='os.remove ID3 tag from mp3')
+    parser = argparse.ArgumentParser(description='Remove ID3 tag from mp3')
     parser.add_argument('Input',  action='store', help='Input file')
 
     parser.add_argument('-o', dest='Output',
